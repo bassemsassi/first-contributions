@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Cinéma</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #111;
+    color: white;
+    text-align: center;
+}
+
+input {
+    padding: 10px;
+    width: 250px;
+}
+
+button {
+    padding: 10px;
+    margin: 10px;
+    cursor: pointer;
+}
+
+.movie {
+    display: inline-block;
+    width: 200px;
+    margin: 10px;
+    background: #222;
+    padding: 10px;
+    border-radius: 10px;
+}
+
+.movie img {
+    width: 100%;
+}
+
+a {
+    color: cyan;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h1>🎬 Cinéma</h1>
+
+<!-- 🔍 BARRE RECHERCHE -->
+<input type="text" id="searchInput" placeholder="Rechercher..." oninput="liveSearch()">
+
+<div id="app"></div>
+
+<script>
+const API_KEY = "TA_CLE_API"; // ⚠️ Mets ta clé ici
+const BASE_URL = "https://www.omdbapi.com/";
+
+const app = document.getElementById("app");
+
+let searchPage = 1;
+let currentQuery = "";
+
+// ========================
+// API
+// ========================
+async function searchMovies(query, page = 1) {
+    const res = await fetch(`${BASE_URL}?apikey=${API_KEY}&s=${query}&page=${page}`);
+    const data = await res.json();
+    return data.Search || [];
+}
+
+async function getMovie(id) {
+    const res = await fetch(`${BASE_URL}?apikey=${API_KEY}&i=${id}`);
+    return await res.json();
+}
+
+
+// ========================
+// 🎬 FILMS TENDANCE (min 3)
+// ========================
+const trending = ["Avengers", "Spider-Man", "Batman"];
+
+async function showTrending() {
+    app.innerHTML = "<h2>🔥 Films tendances</h2>";
+
+    for (let title of trending) {
+        const movies = await searchMovies(title);
+        if (movies.length > 0) {
+            const m = movies[0];
+
+            // BONUS résumé
+            const details = await getMovie(m.imdbID);
+
+            app.innerHTML += `
+                <div class="movie">
+                    <img src="${m.Poster}">
+                    <h3>${m.Title}</h3>
+                    <p>${details.Plot.substring(0, 80)}...</p>
+                    <a onclick="showMovie('${m.imdbID}')">Voir plus</a>
+                </div>
+            `;
+        }
+    }
+
+    // bouton 2024
+    app.innerHTML += `<br><button onclick="loadMore2024()">+ Films 2024</button>`;
+}
+
+
+// ========================
+// 📅 FILMS 2024
+// ========================
+async function loadMore2024() {
+    const movies = await searchMovies("2024");
+
+    movies.forEach(m => {
+        app.innerHTML += `
+            <div class="movie">
+                <img src="${m.Poster}">
+                <h3>${m.Title}</h3>
+                <a onclick="showMovie('${m.imdbID}')">Voir plus</a>
+            </div>
+        `;
+    });
+}
+
+
+// ========================
+// 🔍 RECHERCHE TEMPS REEL
+// ========================
+async function liveSearch() {
+    const query = document.getElementById("searchInput").value;
+
+    if (query.length < 2) {
+        showTrending();
+        return;
+    }
+
+    currentQuery = query;
+    searchPage = 1;
+
+    const movies = await searchMovies(query);
+
+    displayResults(movies, true);
+}
+
+
+// ========================
+// AFFICHAGE RESULTATS
+// ========================
+function displayResults(movies, reset = false) {
+    if (reset) app.innerHTML = "<h2>Résultats</h2>";
+
+    movies.forEach(m => {
+        app.innerHTML += `
+            <div class="movie">
+                <img src="${m.Poster}">
+                <h3>${m.Title}</h3>
+                <a onclick="showMovie('${m.imdbID}')">Voir plus</a>
+            </div>
+        `;
+    });
+
+    app.innerHTML += `<br><button onclick="loadMoreSearch()">+ Résultats</button>`;
+}
+
+
+// ========================
+// ➕ PLUS RESULTATS
+// ========================
+async function loadMoreSearch() {
+    searchPage++;
+    const movies = await searchMovies(currentQuery, searchPage);
+    displayResults(movies);
+}
+
+
+// ========================
+// 🎬 DETAIL FILM
+// ========================
+async function showMovie(id) {
+    app.innerHTML = "Chargement...";
+
+    const m = await getMovie(id);
+
+    // format date DVD
+    let dvdDate = m.DVD !== "N/A"
+        ? new Date(m.DVD).toLocaleDateString("fr-FR")
+        : "Non disponible";
+
+    app.innerHTML = `
+        <h2>${m.Title}</h2>
+        <img src="${m.Poster}" width="300">
+        <p>${m.Plot}</p>
+        <p><b>Genre :</b> ${m.Genre}</p>
+        <p><b>Acteurs :</b> ${m.Actors}</p>
+
+        <!-- BONUS -->
+        <p><b>Note IMDb :</b> ${m.imdbRating}</p>
+        <p><b>Sortie DVD :</b> ${dvdDate}</p>
+
+        <button onclick="showTrending()">Retour</button>
+    `;
+}
+
+
+// ========================
+// START
+// ========================
+showTrending();
+
+</script>
+
+</body>
+</html>
